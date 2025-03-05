@@ -1,0 +1,136 @@
+#include <Servo.h>
+
+// Motor and Sensor Pins
+#define IN1 7
+#define IN2 8
+#define IN3 9
+#define IN4 10
+#define ENA 6
+#define ENB 5
+#define Trig A5       // Ultrasonic sensor trigger pin
+#define Echo A4       // Ultrasonic sensor echo pin
+#define SERVO_PIN 3  // Servo pin for rotating the ultrasonic sensor
+
+int carSpeed = 200;       // Motor speed (0-255)
+int obstacleDistance = 30; // Distance threshold in cm to detect obstacles
+Servo servo;              // Servo object to control sensor direction
+
+void setup() {
+  Serial.begin(9600);
+
+  // Motor pins setup
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+
+  // Ultrasonic sensor setup
+  pinMode(Trig, OUTPUT);
+  pinMode(Echo, INPUT);
+
+  // Servo setup
+  servo.attach(SERVO_PIN);
+  servo.write(90);  // Center position initially
+
+  // Initialize motor speed
+  analogWrite(ENA, carSpeed);
+  analogWrite(ENB, carSpeed);
+}
+
+void loop() {
+  int centerDistance = scanDistance(90);   // Get distance at center
+  if (centerDistance < obstacleDistance) {
+    // Obstacle detected in front, perform avoidance maneuver
+    stop();
+    delay(500);  // Pause briefly
+    
+    int rightDistance = scanDistance(30);  // Check distance to the right
+    int leftDistance = scanDistance(150);  // Check distance to the left
+    
+    // Choose the best direction based on maximum available space
+    if (rightDistance > obstacleDistance && rightDistance > leftDistance) {
+      right();
+      delay(1000);   // Turn right for 1 second
+    } else if (leftDistance > obstacleDistance) {
+      left();
+      delay(1000);   // Turn left for 1 second
+    } else {
+      back();       // If no clear direction, move backward briefly
+      delay(500);
+    }
+  } else {
+    forward();     // No obstacle, continue moving forward
+  }
+}
+
+// Function to move forward
+void forward() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  Serial.println("Moving Forward");
+}
+
+// Function to move backward
+void back() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  Serial.println("Moving Backward");
+}
+
+// Function to stop movement
+void stop() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  Serial.println("Stopped");
+}
+
+// Function to turn right
+void right() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  Serial.println("Turning Right");
+}
+
+// Function to turn left
+void left() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  Serial.println("Turning Left");
+}
+
+// Function to measure distance from ultrasonic sensor at a given angle
+int scanDistance(int angle) {
+  servo.write(angle);      // Rotate sensor to specified angle
+  delay(500);               // Wait for servo to reach position
+  return getDistance();     // Get distance reading
+}
+
+// Function to measure distance from ultrasonic sensor
+int getDistance() {
+  digitalWrite(Trig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(Trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(Trig, LOW);
+  
+  long duration = pulseIn(Echo, HIGH);
+  int distance = duration * 0.034 / 2;  // Convert duration to distance in cm
+  
+  Serial.print("Distance at angle: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+  
+  return distance;
+}
